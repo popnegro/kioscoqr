@@ -15,25 +15,11 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.get("/api/state", async (_req, res) => {
-  if (!db) {
-    return res.status(503).json({
-      ok: false,
-      error: "DATABASE_NOT_CONFIGURED",
-    });
-  }
-
-  res.json({
-    ok: true,
-    service: "kioscoqr",
-    database: "configured",
-  });
+app.get("/api/state", (_req, res) => {
+  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
+  res.json({ ok: true, service: "kioscoqr", database: "configured" });
 });
 
-app.use((_req, res) => {
-  res.status(404).json({ ok: false, error: "NOT_FOUND" });
-});
+app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
-app.listen(env.PORT, () => {
-  console.log("kioscoqr listening on :" + env.PORT);
-});
+app.listen(env.PORT, () => console.log("kioscoqr listening on :" + env.PORT));

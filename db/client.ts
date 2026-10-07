@@ -4,4 +4,6 @@ import * as schema from "./schema.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-export const db = databaseUrl ? drizzle(neon(databaseUrl), { schema }) : null;
+export const db = databaseUrl
+  ? drizzle(neon(databaseUrl), { schema })
+  : null;

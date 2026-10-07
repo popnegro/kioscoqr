@@ -1,4 +1,16 @@
-import { boolean, check, index, inet, numeric, pgTable, text, timestamp, uuid, uniqueIndex, char } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  index,
+  inet,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  uniqueIndex,
+  char,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const tenants = pgTable("tenants", {
