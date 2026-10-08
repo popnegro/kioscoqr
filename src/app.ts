@@ -1,9 +1,11 @@
 import express from "express";
 import { db } from "./db/client.js";
+import { publicRouter } from "./routes/public.js";
 
 export const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "32kb" }));
+app.use("/api/public", publicRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "kioscoqr", database: db ? "configured" : "not_configured", timestamp: new Date().toISOString() });
