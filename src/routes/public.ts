@@ -30,6 +30,8 @@ publicRouter.get("/stations/:publicCode", async (req, res) => {
       tenantId: tenants.id,
       tenantName: tenants.name,
       tenantSlug: tenants.slug,
+      googleReviewUrl: tenants.googleReviewUrl,
+      whatsappNumber: tenants.whatsappNumber,
     })
     .from(cashierStations)
     .innerJoin(tenants, eq(cashierStations.tenantId, tenants.id))
@@ -62,6 +64,10 @@ publicRouter.get("/stations/:publicCode", async (req, res) => {
       id: station.tenantId,
       name: station.tenantName,
       slug: station.tenantSlug,
+    },
+    public: {
+      googleReviewUrl: station.googleReviewUrl,
+      whatsappNumber: station.whatsappNumber,
     },
   });
 });
