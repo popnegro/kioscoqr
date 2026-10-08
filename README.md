@@ -37,3 +37,7 @@ Endpoints iniciales:
 ## Neon
 
 Aplicar drizzle/0000_initial.sql sobre la branch de Neon correspondiente antes de probar GET /api/state con DATABASE_URL.
+
+## Autonomous gate test
+
+Esta modificación mínima existe únicamente para validar el circuito CI -> PR -> aprobación del agente -> HUMAN GATE -> auto-merge.
