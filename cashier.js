@@ -117,7 +117,7 @@ function renderPanel(session) {
   amount.step = "0.01";
   amount.placeholder = "0,00";
   amount.required = true;
-  const submit = element("button", "primary", "Crear operación");
+  const submit = element("button", "primary", "Generar QR dinámico");
   submit.type = "submit";
   form.append(label, amount, submit);
   form.addEventListener("submit", async (event) => {
@@ -148,15 +148,15 @@ function renderPanel(session) {
 
 function renderOperation(operation) {
   const card = element("section", "cashier-operation");
-  card.append(element("p", "eyebrow", "Operación creada · sin cobro"));
+  card.append(element("p", "eyebrow", "QR dinámico generado · pago no habilitado"));
   card.append(element("h2", "", "$" + Number(operation.amount).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })));
   card.append(element("p", "cashier-meta", "Referencia: " + operation.reference));
-  card.append(element("p", "cashier-meta", "Estado: Pendiente de pago · Pago digital deshabilitado."));
+  card.append(element("p", "cashier-meta", "Estado: operación creada. El QR identifica este importe y esta referencia; todavía no se puede verificar un pago desde KioscoQR."));
   const customerUrl = new URL("/", location.origin);
   customerUrl.searchParams.set("station", currentSession.stationCode);
   customerUrl.searchParams.set("reference", operation.reference);
   const image = element("img", "cashier-qr");
-  image.alt = "QR para consultar la operación. No habilita el pago digital.";
+  image.alt = "QR dinámico asociado al importe y referencia de esta operación. Pago digital no habilitado.";
   image.src = "/api/cashier/operations/" + encodeURIComponent(operation.reference) + "/qr";
   card.append(image);
   const actions = element("div", "cashier-actions");
@@ -179,7 +179,7 @@ function renderOperation(operation) {
   });
   actions.append(open, copy);
   card.append(actions);
-  card.append(element("p", "cashier-success", "No se inició ni confirmó ningún cobro. Indicá al cliente que consulte con el cajero."));
+  card.append(element("p", "cashier-success", "Mostrá este QR al cliente. Antes de dar la operación por pagada, el cajero debe verificar el pago por un medio confiable. La verificación automática todavía no está integrada."));
   app.prepend(card);
   const old = app.querySelector(".cashier-operation:not(:first-child)");
   if (old) old.remove();
