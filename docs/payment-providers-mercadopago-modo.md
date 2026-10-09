@@ -6,7 +6,7 @@ El cajero elige un proveedor antes de generar el QR. Cada operación queda asoci
 
 ## Estado de seguridad
 
-El selector de proveedor y los adaptadores de creación de QR están implementados en esta rama. Si falta alguna variable obligatoria, la API devuelve `503 PROVIDER_NOT_CONFIGURED`. Cuando el proveedor confirma la creación y devuelve su QR, la operación se registra como `PENDING`. La consulta de estado/webhook aún no está implementada: no habilitar uso operativo ni marcar `PAID` por escaneo, redirección, captura de pantalla o respuesta del navegador.
+El selector de proveedor y los adaptadores de creación de QR están implementados en esta rama. Si falta alguna variable obligatoria, la API devuelve `503 PROVIDER_NOT_CONFIGURED`. Cuando el proveedor confirma la creación y devuelve su QR, la operación se registra como `PENDING`. La reconciliación de estado ya está implementada en esta rama, pero requiere credenciales y validación de contratos reales en preproducción. No habilitar producción ni marcar `PAID` por escaneo, redirección, captura de pantalla o respuesta del navegador.
 
 ## Mercado Pago — QR dinámico presencial
 
@@ -23,7 +23,7 @@ Documentación oficial: https://www.mercadopago.com.ar/developers/es/docs/qr-cod
 Variables de entorno previstas:
 - `MERCADOPAGO_ACCESS_TOKEN`
 - `MERCADOPAGO_POS_ID` (el identificador externo de caja configurado en Mercado Pago)
-- `MERCADOPAGO_WEBHOOK_SECRET` solo si aplica al tipo de notificación configurada; no asumir que todas las integraciones QR admiten la misma firma.
+- El cajero consulta la Orders API desde el servidor; el endpoint de webhook también vuelve a consultar la API antes de actualizar el estado. La notificación no se toma como evidencia de pago por sí sola.
 
 ## MODO — Payment Request con QR
 
@@ -43,6 +43,7 @@ Variables de entorno previstas:
 - `MODO_CC_CODE`
 - `MODO_PROCESSOR_CODE`
 - `MODO_WEBHOOK_PUBLIC_KEY` (clave pública oficial que MODO proporcione para verificar la firma de las notificaciones; no generar ni inventar una clave propia).
+- `MODO_WEBHOOK_URL` (URL HTTPS del entorno desplegado que apunta a `/api/webhooks/modo`; configurar la URL de preproducción por separado de producción).
 
 ## Contrato interno recomendado
 
@@ -50,14 +51,14 @@ Variables de entorno previstas:
 - Crear intención: referencia idempotente, importe ARS, descripción no sensible.
 - Respuesta: provider, provider order/payment request ID, payload QR del proveedor, expiración, estado local `PENDING` solo tras creación confirmada por la API.
 - Estado MODO: el adaptador solo habilita el proveedor cuando se configura la clave pública de verificación. El webhook verifica la firma del evento, correlaciona el ID y la referencia, y valida el importe; únicamente `ACCEPTED` firmado puede cambiar `PENDING` a `PAID`. El formato/algoritmo de firma debe confirmarse con MODO en preproducción antes de producción.
-- Webhooks: aceptar reintentos de forma idempotente, no confiar en importes/referencias aportados sin consultar al proveedor, y no loguear tokens ni datos personales.
+- Webhooks: `/api/webhooks/mercadopago` consulta el estado real de la order en la API oficial; `/api/webhooks/modo` verifica la firma configurada antes de correlacionar referencia, ID e importe. Las transiciones son idempotentes y solo se actualizan filas en `PENDING`.
 - Reconciliación: si se pierde la respuesta al crear una intención, consultar por la referencia/idempotency key antes de crear otra para evitar dobles cobros.
 - Un proveedor sin configuración válida se deshabilita en la UI y la API devuelve `503 PROVIDER_NOT_CONFIGURED`. No degradar silenciosamente a QR interno.
 
 ## Puerta para habilitar producción
 
 1. Credenciales de prueba y parámetros de caja/gateway disponibles.
-2. Validar en preproducción los contratos de respuesta y notificación; confirmar con MODO el formato JWS/algoritmo y la clave pública oficial. Completar reconciliación de solicitudes con resultado de red ambiguo.
+2. Validar en preproducción los contratos de respuesta y notificación; confirmar con MODO el formato JWS/algoritmo y la clave pública oficial. La reconciliación de solicitudes cuyo resultado de red sea ambiguo sigue pendiente.
 3. Pruebas automáticas con respuestas simuladas y pruebas reales de sandbox/preproducción.
 4. QA de importe, referencia, expiración, pagos duplicados, estados fallidos y aislamiento multi-tenant.
 5. Recién entonces configurar credenciales productivas y habilitar cobros.
