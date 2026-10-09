@@ -18,7 +18,7 @@ Documentación oficial: https://www.mercadopago.com.ar/developers/es/docs/qr-cod
 - Incluir la referencia propia en `external_reference`, el importe en `transactions.payments` y configurar `config.qr.mode: "dynamic"` junto con el identificador de caja `config.qr.external_pos_id`.
 - Renderizar el contenido QR exclusivo retornado por la API (por ejemplo, `qr_data`), no la URL interna de KioscoQR.
 - Persistir el identificador de order del proveedor y correlacionarlo con la referencia propia. El adaptador actual persiste el ID en `provider_payment_id`.
-- La implementación pendiente debe consultar `GET /v1/orders/{order_id}` y validar importe, moneda, referencia y estado antes de cualquier transición local.
+- Implementado: el endpoint de notificación vuelve a consultar `GET /v1/orders/{order_id}` desde el servidor y valida ID, referencia externa, importe y moneda. Solo `status: processed` permite pasar de `PENDING` a `PAID`; `expired` y `canceled` se mapean a estados terminales.
 
 Variables de entorno previstas:
 - `MERCADOPAGO_ACCESS_TOKEN`
@@ -42,14 +42,14 @@ Variables de entorno previstas:
 - `MODO_MERCHANT_USER_AGENT`
 - `MODO_CC_CODE`
 - `MODO_PROCESSOR_CODE`
-- `MODO_WEBHOOK_SECRET` o mecanismo de validación oficial provisto para la cuenta, si corresponde.
+- `MODO_WEBHOOK_PUBLIC_KEY` (clave pública oficial que MODO proporcione para verificar la firma de las notificaciones; no generar ni inventar una clave propia).
 
 ## Contrato interno recomendado
 
 - Proveedor: `MERCADOPAGO` o `MODO`.
 - Crear intención: referencia idempotente, importe ARS, descripción no sensible.
 - Respuesta: provider, provider order/payment request ID, payload QR del proveedor, expiración, estado local `PENDING` solo tras creación confirmada por la API.
-- Estados locales: la creación confirmada deja `PENDING`; la transición a `PAID` no está implementada. Debe añadirse consulta de estado/webhook con validación de importe, moneda, referencia e identidad del comercio.
+- Estado MODO: el adaptador solo habilita el proveedor cuando se configura la clave pública de verificación. El webhook verifica la firma del evento, correlaciona el ID y la referencia, y valida el importe; únicamente `ACCEPTED` firmado puede cambiar `PENDING` a `PAID`. El formato/algoritmo de firma debe confirmarse con MODO en preproducción antes de producción.
 - Webhooks: aceptar reintentos de forma idempotente, no confiar en importes/referencias aportados sin consultar al proveedor, y no loguear tokens ni datos personales.
 - Reconciliación: si se pierde la respuesta al crear una intención, consultar por la referencia/idempotency key antes de crear otra para evitar dobles cobros.
 - Un proveedor sin configuración válida se deshabilita en la UI y la API devuelve `503 PROVIDER_NOT_CONFIGURED`. No degradar silenciosamente a QR interno.
@@ -57,7 +57,7 @@ Variables de entorno previstas:
 ## Puerta para habilitar producción
 
 1. Credenciales de prueba y parámetros de caja/gateway disponibles.
-2. Implementación de consulta de estado/webhook para ambos proveedores y reconciliación de solicitudes con resultado de red ambiguo.
+2. Validar en preproducción los contratos de respuesta y notificación; confirmar con MODO el formato JWS/algoritmo y la clave pública oficial. Completar reconciliación de solicitudes con resultado de red ambiguo.
 3. Pruebas automáticas con respuestas simuladas y pruebas reales de sandbox/preproducción.
 4. QA de importe, referencia, expiración, pagos duplicados, estados fallidos y aislamiento multi-tenant.
 5. Recién entonces configurar credenciales productivas y habilitar cobros.
