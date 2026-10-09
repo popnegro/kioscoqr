@@ -53,7 +53,8 @@ export function isProviderConfigured(provider: PaymentProvider): boolean {
     process.env.MODO_CC_CODE?.trim() &&
     process.env.MODO_PROCESSOR_CODE?.trim() &&
     process.env.MODO_BASE_URL?.trim() &&
-    process.env.MODO_WEBHOOK_PUBLIC_KEY?.trim(),
+    process.env.MODO_WEBHOOK_PUBLIC_KEY?.trim() &&
+    process.env.MODO_WEBHOOK_URL?.trim(),
   );
 }
 
@@ -96,6 +97,8 @@ export async function createProviderQrIntent(input: {
   const userAgent = requiredEnv("MODO_MERCHANT_USER_AGENT");
   const ccCode = requiredEnv("MODO_CC_CODE");
   const processorCode = requiredEnv("MODO_PROCESSOR_CODE");
+  const webhookUrl = requiredEnv("MODO_WEBHOOK_URL");
+  if (!webhookUrl.startsWith("https://")) throw new ProviderNotConfiguredError();
   const baseUrl = requiredEnv("MODO_BASE_URL").replace(/\/$/, "");
   if (!/^https:\/\/merchants\.(preprod\.)?playdigital\.com\.ar$/.test(baseUrl)) {
     throw new ProviderNotConfiguredError();
@@ -115,6 +118,7 @@ export async function createProviderQrIntent(input: {
       cc_code: ccCode,
       processor_code: processorCode,
       external_intention_id: input.reference,
+      webhook_notification: webhookUrl,
       expiration_date: new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0, 19),
     }),
     signal: AbortSignal.timeout(10000),
