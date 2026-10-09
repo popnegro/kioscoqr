@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { db } from "../db/client.js";
 import { payments } from "../db/schema.js";
 import { applyVerifiedModoEvent, reconcileMercadoPagoPayment, verifyModoWebhook, WebhookNotConfiguredError } from "../payments/reconcile.js";
@@ -11,7 +11,7 @@ function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function mercadoPagoOrderId(req: Parameters<Parameters<typeof webhooksRouter.post>[1]>[0]): string | null {
+function mercadoPagoOrderId(req: Request): string | null {
   const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
   const data = body.data && typeof body.data === "object" ? body.data as Record<string, unknown> : {};
   const queryData = req.query.data && typeof req.query.data === "object" ? req.query.data as Record<string, unknown> : {};
