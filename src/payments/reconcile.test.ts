@@ -59,7 +59,10 @@ test("MODO notification rejects a payload changed after signing", () => {
       amount: 250.5,
       currency: "ARS",
     });
-    body.amount = 1;
+    body.signature.payload = Buffer.from(JSON.stringify({
+      id: "modo-intent-1", status: "ACCEPTED",
+      external_intention_id: "f48a6e9e-6cc5-4d0b-9a40-b1b1c2f9f6f0", amount: 1, currency: "ARS",
+    })).toString("base64url");
     assert.throws(() => verifyModoWebhook(body), ProviderRequestError);
   } finally {
     if (previous === undefined) delete process.env.MODO_WEBHOOK_PUBLIC_KEY;
