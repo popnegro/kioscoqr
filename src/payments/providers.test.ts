@@ -11,6 +11,7 @@ const providerEnvNames = [
   "MODO_PROCESSOR_CODE",
   "MODO_BASE_URL",
   "MODO_WEBHOOK_PUBLIC_KEY",
+  "MODO_WEBHOOK_URL",
 ] as const;
 
 async function withEnv<T>(values: Record<string, string | undefined>, run: () => Promise<T>): Promise<T> {
@@ -108,6 +109,7 @@ test("MODO adapter uses preproduction and a unique external intention ID", async
     MODO_CC_CODE: "test-cc",
     MODO_PROCESSOR_CODE: "test-processor",
     MODO_WEBHOOK_PUBLIC_KEY: "test-public-key",
+    MODO_WEBHOOK_URL: "https://kioscosmaipu.vercel.app/api/webhooks/modo",
   }, async () => {
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       requestUrl = String(input);
@@ -136,6 +138,7 @@ test("MODO adapter uses preproduction and a unique external intention ID", async
       assert.equal(body.external_intention_id, "a4fdb647-98aa-4c80-9a5c-57bcbf5c09bb");
       assert.equal(body.cc_code, "test-cc");
       assert.equal(body.processor_code, "test-processor");
+      assert.equal(body.webhook_notification, "https://kioscosmaipu.vercel.app/api/webhooks/modo");
     } finally {
       globalThis.fetch = originalFetch;
     }
