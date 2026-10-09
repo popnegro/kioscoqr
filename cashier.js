@@ -163,7 +163,7 @@ function renderPanel(session) {
     }
   });
   app.append(form, logout);
-  app.append(element("p", "cashier-meta", "Las operaciones se crean como intención. No se inicia ni confirma ningún pago digital."));
+  app.append(element("p", "cashier-meta", "El QR se emite por el proveedor seleccionado. La verificación del estado todavía debe completarse antes de confirmar un pago."));
 }
 
 function renderOperation(operation) {
