@@ -52,7 +52,8 @@ export function isProviderConfigured(provider: PaymentProvider): boolean {
     process.env.MODO_MERCHANT_USER_AGENT?.trim() &&
     process.env.MODO_CC_CODE?.trim() &&
     process.env.MODO_PROCESSOR_CODE?.trim() &&
-    process.env.MODO_BASE_URL?.trim(),
+    process.env.MODO_BASE_URL?.trim() &&
+    process.env.MODO_WEBHOOK_PUBLIC_KEY?.trim(),
   );
 }
 
