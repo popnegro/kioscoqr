@@ -5,6 +5,7 @@ import { Router, type Request, type Response } from "express";
 import { db } from "../db/client.js";
 import { cashierStations, cashiers, payments, tenants } from "../db/schema.js";
 import { createProviderQrIntent, isProviderConfigured, ProviderNotConfiguredError, ProviderRequestError, type PaymentProvider } from "../payments/providers.js";
+import { reconcileMercadoPagoPayment } from "../payments/reconcile.js";
 
 export const cashierRouter = Router();
 
@@ -287,6 +288,60 @@ cashierRouter.post("/operations", async (req, res) => {
   }
 });
 
+
+cashierRouter.get("/operations/:reference/status", async (req, res) => {
+  const stationTokens = getStationTokens();
+  if (!stationTokens) return res.status(503).json({ ok: false, error: "CASHIER_AUTH_NOT_CONFIGURED" });
+  const session = readSession(req.headers.cookie, stationTokens);
+  if (!session) return res.status(401).json({ ok: false, error: "SESSION_REQUIRED" });
+  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
+
+  const reference = typeof req.params.reference === "string" ? req.params.reference : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reference)) {
+    return res.status(400).json({ ok: false, error: "INVALID_OPERATION_REFERENCE" });
+  }
+
+  try {
+    const rows = await db.select({
+      id: payments.id,
+      provider: payments.provider,
+      providerPaymentId: payments.providerPaymentId,
+      externalReference: payments.externalReference,
+      amount: payments.amount,
+      currency: payments.currency,
+      status: payments.status,
+    }).from(payments)
+      .innerJoin(cashierStations, eq(payments.stationId, cashierStations.id))
+      .where(and(
+        eq(payments.externalReference, reference),
+        eq(cashierStations.publicCode, session.stationCode),
+      ))
+      .limit(1);
+    const payment = rows[0];
+    if (!payment) return res.status(404).json({ ok: false, error: "OPERATION_NOT_FOUND" });
+
+    let status = payment.status;
+    if (payment.provider === "MERCADOPAGO" && payment.status === "PENDING") {
+      status = await reconcileMercadoPagoPayment(payment);
+    }
+    res.setHeader("Cache-Control", "no-store, private");
+    return res.json({
+      ok: true,
+      operation: { reference, provider: payment.provider, amount: payment.amount, currency: payment.currency, status },
+      verification: payment.provider === "MERCADOPAGO"
+        ? "SERVER_PROVIDER_QUERY"
+        : status === "PENDING" ? "WAITING_FOR_SIGNED_PROVIDER_NOTIFICATION" : "SERVER_PROVIDER_NOTIFICATION",
+    });
+  } catch (error) {
+    if (error instanceof ProviderNotConfiguredError) {
+      return res.status(503).json({ ok: false, error: "PROVIDER_NOT_CONFIGURED" });
+    }
+    if (error instanceof ProviderRequestError) {
+      return res.status(502).json({ ok: false, error: "PROVIDER_STATUS_UNAVAILABLE" });
+    }
+    return res.status(503).json({ ok: false, error: "OPERATION_STATUS_UNAVAILABLE" });
+  }
+});
 
 cashierRouter.get("/operations/:reference/qr", (_req, res) => {
   return res.status(410).json({ ok: false, error: "QR_MUST_BE_CREATED_BY_PAYMENT_PROVIDER" });
