@@ -1,5 +1,11 @@
 const app = document.querySelector("#cashier-app");
 let currentSession = null;
+let statusPollTimer = null;
+
+function stopStatusPolling() {
+  if (statusPollTimer !== null) clearTimeout(statusPollTimer);
+  statusPollTimer = null;
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -33,7 +39,10 @@ async function request(path, options = {}) {
       NO_ACTIVE_CASHIER: "No hay un cajero activo asociado al comercio.",
       INVALID_PROVIDER: "Seleccioná Mercado Pago o MODO.",
       PROVIDER_NOT_CONFIGURED: "El proveedor seleccionado todavía no tiene todas las credenciales y parámetros comerciales configurados. No se creó ningún QR.",
-      PROVIDER_REQUEST_FAILED: "El proveedor rechazó o no pudo completar la solicitud. No se mostró ningún QR; verificá el panel del proveedor antes de reintentar."
+      PROVIDER_REQUEST_FAILED: "El proveedor rechazó o no pudo completar la solicitud. No se mostró ningún QR; verificá el panel del proveedor antes de reintentar.",
+      PROVIDER_STATUS_UNAVAILABLE: "No se pudo verificar el estado con el proveedor. No confirmes el pago; el sistema volverá a consultar.",
+      OPERATION_STATUS_UNAVAILABLE: "No se pudo consultar el estado de la operación.",
+      MODO_NOTIFICATION_INVALID: "La notificación de pago de MODO no superó la verificación de seguridad."
     };
     throw new Error(messages[payload?.error] || "No se pudo completar la solicitud. Código: " + (payload?.error || response.status));
   }
@@ -41,6 +50,7 @@ async function request(path, options = {}) {
 }
 
 function renderLogin(message = "") {
+  stopStatusPolling();
   currentSession = null;
   app.replaceChildren();
   app.append(element("p", "eyebrow", "Acceso restringido"));
@@ -93,6 +103,7 @@ function renderLogin(message = "") {
 }
 
 function renderPanel(session) {
+  stopStatusPolling();
   currentSession = session;
   app.replaceChildren();
   app.append(element("p", "eyebrow", "Sesión de caja activa"));
@@ -188,20 +199,60 @@ async function loadProviderAvailability(select) {
 }
 
 function renderOperation(operation) {
+  stopStatusPolling();
   const card = element("section", "cashier-operation");
   const providerName = operation.provider === "MERCADOPAGO" ? "Mercado Pago" : "MODO";
   card.append(element("p", "eyebrow", "QR dinámico de " + providerName));
   card.append(element("h2", "", "$" + Number(operation.amount).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })));
   card.append(element("p", "cashier-meta", "Referencia: " + operation.reference));
-  card.append(element("p", "cashier-meta", "Estado inicial: PENDIENTE. Este estado no confirma que el dinero haya sido acreditado."));
+  const status = element("p", "cashier-status", "Estado: PENDIENTE · verificando con el servidor");
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  card.append(status);
   const image = element("img", "cashier-qr");
   image.alt = "QR de pago emitido por " + providerName + " para la operación " + operation.reference;
   image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(operation.qrSvg);
   card.append(image);
-  card.append(element("p", "cashier-error", "No marques la operación como pagada por el escaneo o una captura. La verificación automática del estado del proveedor todavía debe completarse antes del uso operativo."));
+  card.append(element("p", "cashier-meta", operation.provider === "MERCADOPAGO"
+    ? "El estado se consulta directamente a Mercado Pago desde el servidor."
+    : "El estado se actualiza cuando llega una notificación firmada y verificada de MODO."));
+  card.append(element("p", "cashier-error", "No confirmes un pago por el escaneo o una captura. Solo el estado verificado por el servidor confirma la acreditación."));
+  const previous = app.querySelector(".cashier-operation");
+  if (previous) previous.remove();
   app.prepend(card);
-  const old = app.querySelector(".cashier-operation:not(:first-child)");
-  if (old) old.remove();
+
+  let attempts = 0;
+  const poll = async () => {
+    attempts += 1;
+    try {
+      const result = await request("/api/cashier/operations/" + encodeURIComponent(operation.reference) + "/status");
+      const current = result.operation.status;
+      status.textContent = "Estado verificado: " + current;
+      if (current === "PAID") {
+        status.className = "cashier-success";
+        status.textContent = "PAGO ACREDITADO · confirmado por el servidor";
+        return;
+      }
+      if (current === "EXPIRED" || current === "CANCELLED") {
+        status.className = "cashier-error";
+        status.textContent = "Operación finalizada: " + current;
+        return;
+      }
+      if (attempts >= 180) {
+        status.textContent = "Estado: PENDING · se detuvo la consulta automática; verificá el panel del proveedor.";
+        return;
+      }
+    } catch (error) {
+      status.textContent = error.message;
+      if (error.message.includes("sesión")) {
+        renderLogin(error.message);
+        return;
+      }
+      if (attempts >= 180) return;
+    }
+    statusPollTimer = setTimeout(poll, 5000);
+  };
+  statusPollTimer = setTimeout(poll, 1000);
 }
 
 async function loadSession() {
