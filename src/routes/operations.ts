@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { Router } from "express";
 import { db } from "../db/client.js";
-import { cashierStations, payments } from "../db/schema.js";
+import { cashierStations, payments, tenants } from "../db/schema.js";
 
 export const operationsRouter = Router();
 
@@ -25,13 +25,16 @@ operationsRouter.get("/operations/:reference", async (req, res) => {
         stationId: payments.stationId,
         stationName: cashierStations.name,
         publicCode: cashierStations.publicCode,
+        tenantStatus: tenants.status,
       })
       .from(payments)
       .innerJoin(cashierStations, eq(payments.stationId, cashierStations.id))
+      .innerJoin(tenants, eq(payments.tenantId, tenants.id))
       .where(and(
         eq(payments.externalReference, reference),
         eq(cashierStations.publicCode, publicCode),
         eq(cashierStations.status, "ACTIVE"),
+        eq(tenants.status, "ACTIVE"),
       ))
       .limit(1);
 
