@@ -32,7 +32,7 @@ function readSession(cookieHeader: string | undefined, secret: string): CashierS
   const pair = cookieHeader?.split(";").map((part) => part.trim()).find((part) => part.startsWith(COOKIE_NAME + "="));
   if (!pair) return null;
 
-  const value = decodeURIComponent(pair.slice(COOKIE_NAME.length + 1));
+  const value = pair.slice(COOKIE_NAME.length + 1);
   const separator = value.lastIndexOf(".");
   if (separator < 1) return null;
   const payload = value.slice(0, separator);
@@ -233,10 +233,12 @@ cashierRouter.get("/operations/:reference/qr", async (req, res) => {
       .select({ reference: payments.externalReference, stationCode: cashierStations.publicCode })
       .from(payments)
       .innerJoin(cashierStations, eq(payments.stationId, cashierStations.id))
+      .innerJoin(tenants, eq(cashierStations.tenantId, tenants.id))
       .where(and(
         eq(payments.externalReference, reference),
         eq(cashierStations.publicCode, session.stationCode),
         eq(cashierStations.status, "ACTIVE"),
+        eq(tenants.status, "ACTIVE"),
       ))
       .limit(1);
     const operation = rows[0];
