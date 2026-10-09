@@ -55,7 +55,7 @@ Esta modificación mínima existe únicamente para validar el circuito CI -> PR 
 - La sesión queda vinculada al código público de un puesto activo. Cada puesto tiene su propio secreto; el token de una caja no autoriza iniciar sesión en otra. Las operaciones usan el puesto desde la sesión; el navegador no puede enviar un tenant o cashier ID. La identidad de cajero individual todavía no se gestiona en esta fase.
 - El cajero selecciona Mercado Pago o MODO y genera un único QR de ese proveedor para la operación. El QR interno de referencia está retirado del flujo de cobro.
 - El endpoint heredado `/api/cashier/operations/:reference/qr` responde `410`; el QR debe venir de la API de pago.
-- El backend establece `PENDING` solo después de recibir un ID y QR válidos del proveedor. La consulta de estado y los webhooks aún no están implementados; no se debe confirmar ni usar operativamente un cobro hasta completar esa fase.
+- El backend establece `PENDING` solo después de recibir un ID y QR válidos del proveedor. Mercado Pago se reconcilia consultando `GET /v1/orders/{id}` y validando referencia, importe y moneda; MODO solo puede pasar a `PAID` con una notificación firmada que supere la verificación configurada. No habilitar producción hasta validar el contrato de firma MODO con el proveedor y completar QA de preproducción.
 - No configures el token en código cliente ni lo incluyas en repositorio, issues o logs. Rotarlo invalida las sesiones existentes.
 - Antes de uso operativo, verificar en Preview los casos sin token (503), token incorrecto (401), puesto inválido (404), operación sin sesión (401) y creación válida de una intención (201). La prueba de creación inserta una fila en `payments`; no ejecutarla en producción sin autorización explícita.
 
@@ -66,4 +66,4 @@ El cajero seleccionará un solo proveedor antes de generar el QR. La operación 
 - [Contrato técnico, endpoints y variables requeridas](docs/payment-providers-mercadopago-modo.md).
 - Mercado Pago: requiere Access Token y caja/POS configurados para QR dinámico.
 - MODO: requiere credenciales de acceso y parámetros comerciales `cc_code` y `processor_code` proporcionados por la cuenta/gateway del comercio.
-- La UI deshabilita cada proveedor hasta que el servidor detecta su configuración obligatoria. Aunque la creación del QR esté implementada, no usar cobros operativos hasta completar la verificación de estado/webhook e idempotencia en sandbox/preproducción.
+- La UI deshabilita cada proveedor hasta que el servidor detecta su configuración obligatoria. Caja consulta el estado automáticamente: Mercado Pago mediante consulta autenticada y MODO mediante webhook firmado. Las credenciales de prueba y la clave oficial de verificación MODO deben configurarse y validarse en preproducción antes de habilitar cobros operativos.
