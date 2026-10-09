@@ -1,0 +1,27 @@
+[hidden] { display: none !important; }
+
+.cashier-kiosk { width: min(100%, 620px); min-height: min(760px, calc(100vh - 32px)); }
+.cashier-kiosk .content { justify-content: flex-start; gap: 22px; }
+.cashier-kiosk h2 { font-size: clamp(1.5rem, 5vw, 2rem); overflow-wrap: anywhere; }
+.cashier-form { display: grid; gap: 10px; }
+.cashier-form label { font-size: .9rem; font-weight: 750; }
+.cashier-form input {
+  width: 100%; min-height: 50px; padding: 12px 14px;
+  border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #0f172a;
+}
+.cashier-form input:focus-visible { outline: 3px solid #94a3b8; outline-offset: 2px; }
+.cashier-form .primary { margin-top: 8px; }
+.cashier-secondary {
+  min-height: 48px; padding: 10px 14px; border: 1px solid #cbd5e1;
+  border-radius: 12px; background: #fff; color: #0f172a; cursor: pointer; font-weight: 700;
+}
+.cashier-error { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px; }
+.cashier-success { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; }
+.cashier-operation { border: 1px solid #dbe2ea; border-radius: 18px; padding: 18px; overflow-wrap: anywhere; }
+.cashier-qr { display: block; width: min(100%, 280px); height: auto; margin: 16px auto; background: #fff; }
+.cashier-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.cashier-meta { color: #64748b; font-size: .85rem; line-height: 1.5; }
+@media (max-width: 420px) {
+  .cashier-kiosk { min-height: 100vh; }
+  .cashier-actions { grid-template-columns: 1fr; }
+}

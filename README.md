@@ -41,3 +41,14 @@ Aplicar drizzle/0000_initial.sql sobre la branch de Neon correspondiente antes d
 ## Autonomous gate test
 
 Esta modificación mínima existe únicamente para validar el circuito CI -> PR -> aprobación del agente -> HUMAN GATE -> auto-merge.
+
+## Panel de caja (PMV)
+
+- Acceso: `/cashier` (no indexable).
+- El servidor requiere `CASHIER_STATION_TOKENS`; configurá un objeto JSON cuyas claves sean códigos de puesto y cuyos valores sean secretos aleatorios independientes de al menos 32 caracteres. Ejemplo de estructura: `{"KSM-CAJA-01":"<secreto-aleatorio-de-este-puesto>"}`. Generá cada secreto con `openssl rand -base64 32` y cargá el JSON como variable de entorno en Vercel y localmente.
+- La interfaz intercambia el token por una cookie de sesión firmada, `HttpOnly`, `Secure`, `SameSite=Strict`, limitada a `/api/cashier` y con duración de cuatro horas. El token no se almacena en localStorage ni sessionStorage.
+- La sesión queda vinculada al código público de un puesto activo. Cada puesto tiene su propio secreto; el token de una caja no autoriza iniciar sesión en otra. Las operaciones usan el puesto desde la sesión; el navegador no puede enviar un tenant o cashier ID. La identidad de cajero individual todavía no se gestiona en esta fase.
+- El endpoint de QR requiere una sesión activa y solo devuelve el QR de una operación del puesto de esa sesión.
+- Las operaciones permanecen en estado `CREATED`, con proveedor `NOT_CONFIGURED`. El QR es informativo: no habilita ni confirma pagos.
+- No configures el token en código cliente ni lo incluyas en repositorio, issues o logs. Rotarlo invalida las sesiones existentes.
+- Antes de uso operativo, verificar en Preview los casos sin token (503), token incorrecto (401), puesto inválido (404), operación sin sesión (401) y creación válida de una intención (201). La prueba de creación inserta una fila en `payments`; no ejecutarla en producción sin autorización explícita.

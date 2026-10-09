@@ -3,13 +3,19 @@
   "builds": [
     { "src": "api/index.ts", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
+    { "src": "cashier.html", "use": "@vercel/static" },
     { "src": "styles.css", "use": "@vercel/static" },
+    { "src": "cashier.css", "use": "@vercel/static" },
+    { "src": "cashier.js", "use": "@vercel/static" },
     { "src": "app.js", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "^/api/(.*)$", "dest": "api/index.ts" },
     { "src": "^/styles\\.css$", "dest": "styles.css" },
+    { "src": "^/cashier\\.css$", "dest": "cashier.css" },
+    { "src": "^/cashier\\.js$", "dest": "cashier.js" },
     { "src": "^/app\\.js$", "dest": "app.js" },
+    { "src": "^/cashier/?$", "dest": "cashier.html" },
     { "src": "^/$", "dest": "index.html" }
   ]
 }
