@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import QRCode from "qrcode";
 import { and, eq } from "drizzle-orm";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { db } from "../db/client.js";
 import { cashierStations, cashiers, payments, tenants } from "../db/schema.js";
 
@@ -52,7 +53,7 @@ function readSession(cookieHeader: string | undefined, secret: string): CashierS
   }
 }
 
-function sameOrigin(req: Parameters<Parameters<Router["post"]>[1]>[0]): boolean {
+function sameOrigin(req: Request): boolean {
   const origin = req.header("origin");
   const host = req.header("host");
   if (!origin || !host) return false;
@@ -63,7 +64,7 @@ function sameOrigin(req: Parameters<Parameters<Router["post"]>[1]>[0]): boolean 
   }
 }
 
-function clearSession(res: Parameters<Parameters<Router["post"]>[1]>[1]): void {
+function clearSession(res: Response): void {
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
     secure: true,
@@ -212,5 +213,51 @@ cashierRouter.post("/operations", async (req, res) => {
     });
   } catch {
     return res.status(503).json({ ok: false, error: "OPERATION_CREATION_UNAVAILABLE" });
+  }
+});
+
+
+cashierRouter.get("/operations/:reference/qr", async (req, res) => {
+  const secret = process.env.CASHIER_API_TOKEN;
+  if (!secret) return res.status(503).json({ ok: false, error: "CASHIER_API_NOT_CONFIGURED" });
+  const session = readSession(req.headers.cookie, secret);
+  if (!session) return res.status(401).json({ ok: false, error: "SESSION_REQUIRED" });
+  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
+
+  const reference = req.params.reference.trim();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(reference)) return res.status(400).json({ ok: false, error: "INVALID_OPERATION_REFERENCE" });
+
+  try {
+    const rows = await db
+      .select({ reference: payments.externalReference, stationCode: cashierStations.publicCode })
+      .from(payments)
+      .innerJoin(cashierStations, eq(payments.stationId, cashierStations.id))
+      .where(and(
+        eq(payments.externalReference, reference),
+        eq(cashierStations.publicCode, session.stationCode),
+        eq(cashierStations.status, "ACTIVE"),
+      ))
+      .limit(1);
+    const operation = rows[0];
+    if (!operation) return res.status(404).json({ ok: false, error: "OPERATION_NOT_FOUND" });
+
+    const host = req.header("host");
+    if (!host) return res.status(400).json({ ok: false, error: "PUBLIC_HOST_UNAVAILABLE" });
+    const forwardedProto = req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+    const protocol = forwardedProto === "https" ? "https" : req.protocol;
+    const customerUrl = new URL("/", protocol + "://" + host);
+    customerUrl.searchParams.set("station", operation.stationCode);
+    customerUrl.searchParams.set("reference", operation.reference);
+    const svg = await QRCode.toString(customerUrl.toString(), {
+      type: "svg",
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 280,
+    });
+    res.setHeader("Cache-Control", "no-store, private");
+    res.type("image/svg+xml").send(svg);
+  } catch {
+    return res.status(503).json({ ok: false, error: "OPERATION_QR_UNAVAILABLE" });
   }
 });
