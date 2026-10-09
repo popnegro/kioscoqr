@@ -5,7 +5,7 @@ const storeName = document.querySelector("#store-name");
 const stationBadge = document.querySelector(".station");
 
 function formatAmount(value) {
-  const normalized = value.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+  const normalized = value.replace(/\\s/g, "").replace(/\\./g, "").replace(",", ".");
   const number = Number(normalized);
   return Number.isFinite(number) ? number : 0;
 }
@@ -50,6 +50,53 @@ function showStationError(message) {
   form.remove();
 }
 
+async function showOperation(reference, publicCode) {
+  try {
+    const response = await fetch(
+      "/api/public/operations/" + encodeURIComponent(reference) + "?station=" + encodeURIComponent(publicCode),
+      { headers: { Accept: "application/json" } }
+    );
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok || !payload?.ok || !payload.operation) {
+      renderMessage({
+        eyebrow: "Operación no validada",
+        heading: response.status === 404 ? "No encontramos esta operación" : "No se pudo consultar la operación",
+        message: response.status === 404
+          ? "La referencia no corresponde a este puesto o la operación no está disponible. Verificá la referencia con el cajero."
+          : "El servicio no pudo validar la referencia. Volvé a intentarlo más tarde.",
+        status: "No se realizó ningún cobro. No ingreses datos de pago.",
+      });
+      form.remove();
+      return;
+    }
+
+    const operation = payload.operation;
+    const numericAmount = Number(operation.amount);
+    const amountLabel = Number.isFinite(numericAmount)
+      ? numericAmount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "No disponible";
+
+    renderMessage({
+      eyebrow: "Operación identificada",
+      heading: "$" + amountLabel,
+      message: "Referencia: " + operation.reference + ". Estado: " + operation.status + ".",
+      status: operation.paymentEnabled === false
+        ? "Pago digital no habilitado. Esta operación no inició ni confirmó ningún cobro; seguí las indicaciones del cajero."
+        : "Consultá el estado con el cajero antes de continuar.",
+    });
+    form.remove();
+  } catch {
+    renderMessage({
+      eyebrow: "Servicio no disponible",
+      heading: "No pudimos consultar la operación",
+      message: "Verificá tu conexión e intentá nuevamente.",
+      status: "No se realizó ningún cobro. No ingreses datos de pago.",
+    });
+    form.remove();
+  }
+}
+
 async function resolvePrintedQrStation() {
   const params = new URLSearchParams(window.location.search);
   const publicCode = params.get("station");
@@ -78,6 +125,12 @@ async function resolvePrintedQrStation() {
     storeName.textContent = payload.tenant.name;
     stationBadge.textContent = payload.station.name;
     document.title = "Cobro en " + payload.tenant.name + " · KioscoQR";
+
+    const reference = params.get("reference");
+    if (reference) {
+      await showOperation(reference, publicCode);
+      return;
+    }
 
     // A printed station QR identifies the checkout only. It must not let a
     // customer choose the amount or simulate a payment confirmation.
