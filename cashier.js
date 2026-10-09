@@ -190,7 +190,7 @@ async function loadSession() {
     const payload = await request("/api/cashier/session");
     renderPanel(payload.session);
   } catch (error) {
-    renderLogin(error.message.includes("sesión") ? error.message : "");
+    renderLogin(error.message);
   }
 }
 
