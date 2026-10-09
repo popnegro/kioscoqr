@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Panel privado de caja de KioscoQR.">
+  <title>Panel de caja · KioscoQR</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/cashier.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="kiosk cashier-kiosk" aria-labelledby="page-title">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true">QR</div>
+        <div>
+          <p class="eyebrow">KioscoQR · Operación interna</p>
+          <h1 id="page-title">Panel de caja</h1>
+        </div>
+      </header>
+      <div id="cashier-app" class="content" aria-live="polite">
+        <p class="muted">Verificando sesión…</p>
+      </div>
+      <footer><a href="/">Volver a KioscoQR</a></footer>
+    </section>
+  </main>
+  <script src="/cashier.js" defer></script>
+</body>
+</html>
