@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
-import { verifyModoWebhook, WebhookNotConfiguredError, ProviderRequestError } from "./reconcile.js";
+import { verifyModoWebhook, WebhookNotConfiguredError } from "./reconcile.js";
+import { ProviderRequestError } from "./providers.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
