@@ -66,4 +66,4 @@ El cajero seleccionará un solo proveedor antes de generar el QR. La operación 
 - [Contrato técnico, endpoints y variables requeridas](docs/payment-providers-mercadopago-modo.md).
 - Mercado Pago: requiere Access Token y caja/POS configurados para QR dinámico.
 - MODO: requiere credenciales de acceso y parámetros comerciales `cc_code` y `processor_code` proporcionados por la cuenta/gateway del comercio.
-- Ambos permanecen deshabilitados hasta completar creación de intención real, validación de estado, webhook/reconsulta e idempotencia en sandbox/preproducción. No habilitar producción antes de pasar QA.
+- La UI deshabilita cada proveedor hasta que el servidor detecta su configuración obligatoria. Aunque la creación del QR esté implementada, no usar cobros operativos hasta completar la verificación de estado/webhook e idempotencia en sandbox/preproducción.
