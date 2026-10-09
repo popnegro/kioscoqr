@@ -22,52 +22,60 @@ publicRouter.get("/stations/:publicCode", async (req, res) => {
     });
   }
 
-  const rows = await db
-    .select({
-      stationId: cashierStations.id,
-      stationName: cashierStations.name,
-      publicCode: cashierStations.publicCode,
-      tenantId: tenants.id,
-      tenantName: tenants.name,
-      tenantSlug: tenants.slug,
-      googleReviewUrl: tenants.googleReviewUrl,
-      whatsappNumber: tenants.whatsappNumber,
-    })
-    .from(cashierStations)
-    .innerJoin(tenants, eq(cashierStations.tenantId, tenants.id))
-    .where(
-      and(
-        eq(cashierStations.publicCode, publicCode),
-        eq(cashierStations.status, "ACTIVE"),
-        eq(tenants.status, "ACTIVE"),
-      ),
-    )
-    .limit(1);
+  try {
+    const rows = await db
+      .select({
+        stationId: cashierStations.id,
+        stationName: cashierStations.name,
+        publicCode: cashierStations.publicCode,
+        tenantId: tenants.id,
+        tenantName: tenants.name,
+        tenantSlug: tenants.slug,
+        googleReviewUrl: tenants.googleReviewUrl,
+        whatsappNumber: tenants.whatsappNumber,
+      })
+      .from(cashierStations)
+      .innerJoin(tenants, eq(cashierStations.tenantId, tenants.id))
+      .where(
+        and(
+          eq(cashierStations.publicCode, publicCode),
+          eq(cashierStations.status, "ACTIVE"),
+          eq(tenants.status, "ACTIVE"),
+        ),
+      )
+      .limit(1);
 
-  const station = rows[0];
+    const station = rows[0];
 
-  if (!station) {
-    return res.status(404).json({
+    if (!station) {
+      return res.status(404).json({
+        ok: false,
+        error: "STATION_NOT_FOUND",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      station: {
+        id: station.stationId,
+        name: station.stationName,
+        publicCode: station.publicCode,
+      },
+      tenant: {
+        id: station.tenantId,
+        name: station.tenantName,
+        slug: station.tenantSlug,
+      },
+      public: {
+        googleReviewUrl: station.googleReviewUrl,
+        whatsappNumber: station.whatsappNumber,
+      },
+    });
+  } catch {
+    // Keep database/schema failures from leaking as unhandled HTTP 500 responses.
+    return res.status(503).json({
       ok: false,
-      error: "STATION_NOT_FOUND",
+      error: "STATION_LOOKUP_UNAVAILABLE",
     });
   }
-
-  return res.json({
-    ok: true,
-    station: {
-      id: station.stationId,
-      name: station.stationName,
-      publicCode: station.publicCode,
-    },
-    tenant: {
-      id: station.tenantId,
-      name: station.tenantName,
-      slug: station.tenantSlug,
-    },
-    public: {
-      googleReviewUrl: station.googleReviewUrl,
-      whatsappNumber: station.whatsappNumber,
-    },
-  });
 });
