@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import { db } from "../db/client.js";
 import { cashierStations, cashiers, payments, tenants } from "../db/schema.js";
+import { createProviderQrIntent, ProviderNotConfiguredError, ProviderRequestError, type PaymentProvider } from "../payments/providers.js";
 
 export const cashierRouter = Router();
 
@@ -189,6 +190,11 @@ cashierRouter.post("/operations", async (req, res) => {
   if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) / 100 !== amount || amount > 9999999999.99) {
     return res.status(400).json({ ok: false, error: "INVALID_AMOUNT" });
   }
+  const providerValue = req.body?.provider;
+  if (providerValue !== "MERCADOPAGO" && providerValue !== "MODO") {
+    return res.status(400).json({ ok: false, error: "INVALID_PROVIDER" });
+  }
+  const provider = providerValue as PaymentProvider;
 
   try {
     const stationRows = await db
@@ -216,71 +222,57 @@ cashierRouter.post("/operations", async (req, res) => {
     if (!cashier) return res.status(409).json({ ok: false, error: "NO_ACTIVE_CASHIER" });
 
     const reference = randomUUID();
-    await db.insert(payments).values({
-      tenantId: station.tenantId,
-      stationId: station.stationId,
-      cashierId: cashier.id,
-      provider: "NOT_CONFIGURED",
-      externalReference: reference,
+    const providerIntent = await createProviderQrIntent({
+      provider,
+      reference,
       amount: amount.toFixed(2),
-      currency: "ARS",
-      status: "CREATED",
     });
-
-    return res.status(201).json({
-      ok: true,
-      operation: { reference, amount: amount.toFixed(2), currency: "ARS", status: "CREATED", paymentEnabled: false },
-      message: "Operación creada como intención. No se inició ni confirmó ningún cobro.",
-    });
-  } catch {
-    return res.status(503).json({ ok: false, error: "OPERATION_CREATION_UNAVAILABLE" });
-  }
-});
-
-
-cashierRouter.get("/operations/:reference/qr", async (req, res) => {
-  const stationTokens = getStationTokens();
-  if (!stationTokens) return res.status(503).json({ ok: false, error: "CASHIER_AUTH_NOT_CONFIGURED" });
-  const session = readSession(req.headers.cookie, stationTokens);
-  if (!session) return res.status(401).json({ ok: false, error: "SESSION_REQUIRED" });
-  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
-
-  const reference = req.params.reference.trim();
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(reference)) return res.status(400).json({ ok: false, error: "INVALID_OPERATION_REFERENCE" });
-
-  try {
-    const rows = await db
-      .select({ reference: payments.externalReference, stationCode: cashierStations.publicCode })
-      .from(payments)
-      .innerJoin(cashierStations, eq(payments.stationId, cashierStations.id))
-      .innerJoin(tenants, eq(cashierStations.tenantId, tenants.id))
-      .where(and(
-        eq(payments.externalReference, reference),
-        eq(cashierStations.publicCode, session.stationCode),
-        eq(cashierStations.status, "ACTIVE"),
-        eq(tenants.status, "ACTIVE"),
-      ))
-      .limit(1);
-    const operation = rows[0];
-    if (!operation) return res.status(404).json({ ok: false, error: "OPERATION_NOT_FOUND" });
-
-    const host = req.header("host");
-    if (!host) return res.status(400).json({ ok: false, error: "PUBLIC_HOST_UNAVAILABLE" });
-    const forwardedProto = req.header("x-forwarded-proto")?.split(",")[0]?.trim();
-    const protocol = forwardedProto === "https" ? "https" : req.protocol;
-    const customerUrl = new URL("/", protocol + "://" + host);
-    customerUrl.searchParams.set("station", operation.stationCode);
-    customerUrl.searchParams.set("reference", operation.reference);
-    const svg = await QRCode.toString(customerUrl.toString(), {
+    const qrSvg = await QRCode.toString(providerIntent.qrData, {
       type: "svg",
       errorCorrectionLevel: "M",
       margin: 2,
       width: 280,
     });
+
+    await db.insert(payments).values({
+      tenantId: station.tenantId,
+      stationId: station.stationId,
+      cashierId: cashier.id,
+      provider: providerIntent.provider,
+      providerPaymentId: providerIntent.providerPaymentId,
+      externalReference: reference,
+      amount: amount.toFixed(2),
+      currency: "ARS",
+      status: "PENDING",
+    });
+
     res.setHeader("Cache-Control", "no-store, private");
-    res.type("image/svg+xml").send(svg);
-  } catch {
-    return res.status(503).json({ ok: false, error: "OPERATION_QR_UNAVAILABLE" });
+    return res.status(201).json({
+      ok: true,
+      operation: {
+        reference,
+        provider: providerIntent.provider,
+        providerPaymentId: providerIntent.providerPaymentId,
+        amount: amount.toFixed(2),
+        currency: "ARS",
+        status: "PENDING",
+        paymentEnabled: true,
+        qrSvg,
+      },
+      message: "QR de pago generado por el proveedor. El estado debe verificarse desde el servidor antes de confirmar el pago.",
+    });
+  } catch (error) {
+    if (error instanceof ProviderNotConfiguredError) {
+      return res.status(503).json({ ok: false, error: "PROVIDER_NOT_CONFIGURED" });
+    }
+    if (error instanceof ProviderRequestError) {
+      return res.status(502).json({ ok: false, error: "PROVIDER_REQUEST_FAILED" });
+    }
+    return res.status(503).json({ ok: false, error: "OPERATION_CREATION_UNAVAILABLE" });
   }
+});
+
+
+cashierRouter.get("/operations/:reference/qr", (_req, res) => {
+  return res.status(410).json({ ok: false, error: "QR_MUST_BE_CREATED_BY_PAYMENT_PROVIDER" });
 });
