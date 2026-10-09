@@ -23,7 +23,8 @@ async function request(path, options = {}) {
   const payload = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
     const messages = {
-      CASHIER_API_NOT_CONFIGURED: "El acceso de caja todavía no está configurado en el servidor.",
+      CASHIER_AUTH_NOT_CONFIGURED: "El acceso de caja todavía no está configurado en el servidor.",
+      STATION_AUTH_NOT_CONFIGURED: "Este puesto todavía no tiene credenciales configuradas en el servidor.",
       UNAUTHORIZED: "Token de caja incorrecto.",
       SESSION_REQUIRED: "La sesión venció. Iniciá sesión nuevamente.",
       STATION_NOT_FOUND: "El código no corresponde a un puesto activo.",
