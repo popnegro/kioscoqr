@@ -1,72 +1,120 @@
-const form = document.querySelector("#payment-form");
-const amount = document.querySelector("#amount");
 const content = document.querySelector("#app");
 const storeName = document.querySelector("#store-name");
 const stationBadge = document.querySelector(".station");
+const contactLink = document.querySelector("#contact-link");
+const reviewLink = document.querySelector("#review-link");
 
-function formatAmount(value) {
-  const normalized = value.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
-  const number = Number(normalized);
-  return Number.isFinite(number) ? number : 0;
+function node(tag, className, text) {
+  const item = document.createElement(tag);
+  if (className) item.className = className;
+  if (text !== undefined) item.textContent = text;
+  return item;
 }
 
-function renderMessage({ eyebrow, heading, message, status }) {
+function renderMessage({ eyebrow, heading, message, status, steps = [], amount = false }) {
   content.replaceChildren();
 
-  const section = document.createElement("section");
-  section.className = "intro";
-
-  const label = document.createElement("p");
-  label.className = "eyebrow";
-  label.textContent = eyebrow;
-
-  const title = document.createElement("h2");
-  title.textContent = heading;
-
-  const description = document.createElement("p");
-  description.className = "muted";
-  description.textContent = message;
-
-  section.append(label, title, description);
+  const section = node("section", "intro");
+  section.append(node("p", "eyebrow", eyebrow));
+  const title = node("h2", amount ? "amount-heading" : "", heading);
+  title.tabIndex = -1;
+  section.append(title, node("p", "muted", message));
   content.append(section);
 
+  if (steps.length) {
+    const list = node("ol", "steps");
+    for (const step of steps) list.append(node("li", "", step));
+    content.append(list);
+  }
+
   if (status) {
-    const note = document.createElement("div");
-    note.className = "trust";
-    const statusText = document.createElement("span");
-    statusText.textContent = status;
-    note.append(statusText);
+    const note = node("div", "status-note");
+    note.setAttribute("role", "status");
+    note.append(node("span", "", status));
     content.append(note);
+  }
+}
+
+function clearMerchantLinks() {
+  for (const link of [contactLink, reviewLink]) {
+    link.hidden = true;
+    link.removeAttribute("href");
+  }
+}
+
+function safeHttpsUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function setMerchantLinks(publicInfo) {
+  clearMerchantLinks();
+  const number = typeof publicInfo?.whatsappNumber === "string"
+    ? publicInfo.whatsappNumber.replace(/\D/g, "")
+    : "";
+  if (number.length >= 8 && number.length <= 15) {
+    contactLink.href = "https://wa.me/" + number;
+    contactLink.hidden = false;
+  }
+
+  const reviewUrl = safeHttpsUrl(publicInfo?.googleReviewUrl);
+  if (reviewUrl && /(^|\.)google\.(com|com\.ar|es|co\.uk)$/i.test(reviewUrl.hostname)) {
+    reviewLink.href = reviewUrl.toString();
+    reviewLink.hidden = false;
   }
 }
 
 function formatOperationStatus(status) {
   const labels = {
-    CREATED: "Pendiente de pago",
+    CREATED: "Creada; pendiente de pago",
     PENDING: "Pendiente de verificación",
-    PAID: "Pagado",
-    FAILED: "Fallido",
-    CANCELLED: "Cancelado",
-    EXPIRED: "Vencido",
+    PAID: "Pago registrado",
+    FAILED: "Fallida",
+    CANCELLED: "Cancelada",
+    EXPIRED: "Vencida",
+    COMPLETED: "Finalizada",
   };
   return labels[status] || "Estado no reconocido";
 }
 
+function showHome() {
+  clearMerchantLinks();
+  storeName.textContent = "KioscoQR";
+  stationBadge.textContent = "Cobro presencial";
+  document.title = "KioscoQR · Cobro presencial";
+  renderMessage({
+    eyebrow: "Información",
+    heading: "Consultá una operación de tu comercio",
+    message: "Este sitio no permite ingresar importes ni iniciar pagos. Para continuar, escaneá el QR del puesto o abrí el enlace de una operación que te haya compartido el cajero.",
+    steps: [
+      "Escaneá el QR impreso del puesto para identificar el comercio.",
+      "Pedile al cajero que genere la operación con el importe correcto.",
+      "Escaneá el QR específico de esa operación para consultar su referencia y estado.",
+    ],
+    status: "Los pagos digitales están deshabilitados. No ingreses datos de billeteras ni compartas claves.",
+  });
+}
+
 function showStationError(message) {
+  clearMerchantLinks();
   renderMessage({
     eyebrow: "QR no validado",
     heading: "No se pudo identificar el puesto",
     message,
-    status: "No ingreses datos ni intentes realizar un pago.",
+    status: "No ingreses datos ni intentes realizar un pago. Verificá el QR con el comercio.",
   });
-  form.remove();
 }
 
 async function showOperation(reference, publicCode) {
   try {
     const response = await fetch(
       "/api/public/operations/" + encodeURIComponent(reference) + "?station=" + encodeURIComponent(publicCode),
-      { headers: { Accept: "application/json" } }
+      { headers: { Accept: "application/json" }, cache: "no-store" }
     );
     const payload = await response.json().catch(() => null);
 
@@ -75,11 +123,10 @@ async function showOperation(reference, publicCode) {
         eyebrow: "Operación no validada",
         heading: response.status === 404 ? "No encontramos esta operación" : "No se pudo consultar la operación",
         message: response.status === 404
-          ? "La referencia no corresponde a este puesto o la operación no está disponible. Verificá la referencia con el cajero."
+          ? "La referencia no corresponde a este puesto o ya no está disponible. Verificá los datos con el cajero."
           : "El servicio no pudo validar la referencia. Volvé a intentarlo más tarde.",
         status: "No se realizó ningún cobro. No ingreses datos de pago.",
       });
-      form.remove();
       return;
     }
 
@@ -88,16 +135,21 @@ async function showOperation(reference, publicCode) {
     const amountLabel = Number.isFinite(numericAmount)
       ? numericAmount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : "No disponible";
+    storeName.textContent = payload.tenant?.name || "Comercio";
+    stationBadge.textContent = payload.station?.name || "Puesto de cobro";
+    document.title = "Operación " + operation.reference + " · KioscoQR";
+    setMerchantLinks(payload.public);
 
     renderMessage({
       eyebrow: "Operación identificada",
       heading: "$" + amountLabel,
-      message: "Referencia: " + operation.reference + ". Estado: " + formatOperationStatus(operation.status) + ".",
-      status: operation.paymentEnabled === false
-        ? "Pago digital no habilitado. Esta operación no inició ni confirmó ningún cobro; seguí las indicaciones del cajero."
-        : "El estado de pago no está habilitado para consulta automática. Verificá con el cajero antes de continuar.",
+      amount: true,
+      message: "Comercio: " + (payload.tenant?.name || "No disponible") +
+        ". Puesto: " + (payload.station?.name || "No disponible") +
+        ". Referencia: " + operation.reference + ". Estado registrado: " + formatOperationStatus(operation.status) + ".",
+      status: "Pago digital deshabilitado. Esta pantalla solo consulta la operación: no inicia, verifica ni confirma un cobro. Seguí las indicaciones del cajero.",
+      steps: ["Revisá el importe y el comercio.", "Si hay alguna diferencia, no continúes y consultá al cajero."],
     });
-    form.remove();
   } catch {
     renderMessage({
       eyebrow: "Servicio no disponible",
@@ -105,83 +157,66 @@ async function showOperation(reference, publicCode) {
       message: "Verificá tu conexión e intentá nuevamente.",
       status: "No se realizó ningún cobro. No ingreses datos de pago.",
     });
-    form.remove();
   }
 }
 
-async function resolvePrintedQrStation() {
+async function resolveRoute() {
   const params = new URLSearchParams(window.location.search);
   const publicCode = params.get("station");
+  const reference = params.get("reference");
 
-  // The unparameterized homepage remains an explicitly labeled visual demo.
-  if (!publicCode) return;
+  if (!publicCode) {
+    showHome();
+    return;
+  }
 
-  const submitButton = form.querySelector("button[type='submit']");
-  if (submitButton) submitButton.disabled = true;
+  if (!/^[A-Za-z0-9_-]{3,64}$/.test(publicCode)) {
+    showStationError("El enlace contiene un código de puesto inválido.");
+    return;
+  }
 
   try {
     const response = await fetch("/api/public/stations/" + encodeURIComponent(publicCode), {
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
     const payload = await response.json().catch(() => null);
 
     if (!response.ok || !payload?.ok || !payload.station || !payload.tenant) {
-      showStationError(
-        response.status === 404
-          ? "El QR no corresponde a un puesto activo. Contactá al comercio."
-          : "No pudimos validar el QR. Volvé a intentarlo más tarde."
-      );
+      showStationError(response.status === 404
+        ? "El QR no corresponde a un puesto activo. Contactá al comercio."
+        : "No pudimos validar el QR. Volvé a intentarlo más tarde.");
       return;
     }
 
     storeName.textContent = payload.tenant.name;
     stationBadge.textContent = payload.station.name;
     document.title = "Cobro en " + payload.tenant.name + " · KioscoQR";
+    setMerchantLinks(payload.public);
 
-    const reference = params.get("reference");
     if (reference) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reference)) {
+        showStationError("La referencia de operación tiene un formato inválido.");
+        return;
+      }
       await showOperation(reference, publicCode);
       return;
     }
 
-    // A printed station QR identifies the checkout only. It must not let a
-    // customer choose the amount or simulate a payment confirmation.
     renderMessage({
       eyebrow: "Comercio identificado",
-      heading: "Solicitá la operación al cajero",
-      message: "Este QR identifica el puesto de cobro. El pago digital todavía no está habilitado; el cajero debe generar una operación antes de que puedas continuar.",
-      status: "No se realizó ningún cobro. No ingreses datos de pago.",
+      heading: "Pedí tu operación al cajero",
+      message: "Este QR impreso identifica el comercio y el puesto; no representa un cobro ni contiene un importe.",
+      steps: [
+        "Mostrá al cajero el importe que necesitás pagar.",
+        "El cajero debe crear la operación en su panel y mostrarte el QR específico.",
+        "Escaneá ese segundo QR para revisar el importe y la referencia antes de continuar.",
+      ],
+      status: "Los pagos digitales todavía no están habilitados. No ingreses datos de pago ni compartas claves.",
     });
-    form.remove();
   } catch {
     showStationError("No pudimos conectar con el servicio. Verificá tu conexión e intentá nuevamente.");
-  } finally {
-    if (submitButton && submitButton.isConnected) submitButton.disabled = false;
   }
 }
 
-resolvePrintedQrStation();
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const value = formatAmount(amount.value);
-
-  if (value <= 0) {
-    amount.setAttribute("aria-invalid", "true");
-    amount.focus();
-    return;
-  }
-
-  amount.removeAttribute("aria-invalid");
-  content.innerHTML = `
-    <section class="intro">
-      <p class="eyebrow">Demo visual</p>
-      <h2>$${value.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</h2>
-      <p class="muted">${storeName.textContent} · ${stationBadge.textContent}</p>
-    </section>
-    <div class="trust"><span>Esta es una demostración. No se crea ni se confirma ningún pago.</span></div>
-    <button class="primary" id="back" type="button">Volver</button>
-  `;
-
-  document.querySelector("#back").addEventListener("click", () => window.location.reload());
-});
+resolveRoute();
