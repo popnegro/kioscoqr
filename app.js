@@ -5,7 +5,7 @@ const storeName = document.querySelector("#store-name");
 const stationBadge = document.querySelector(".station");
 
 function formatAmount(value) {
-  const normalized = value.replace(/\\s/g, "").replace(/\\./g, "").replace(",", ".");
+  const normalized = value.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
   const number = Number(normalized);
   return Number.isFinite(number) ? number : 0;
 }
