@@ -25,6 +25,11 @@ operationsRouter.get("/operations/:reference", async (req, res) => {
         stationId: payments.stationId,
         stationName: cashierStations.name,
         publicCode: cashierStations.publicCode,
+        tenantId: tenants.id,
+        tenantName: tenants.name,
+        tenantSlug: tenants.slug,
+        googleReviewUrl: tenants.googleReviewUrl,
+        whatsappNumber: tenants.whatsappNumber,
         tenantStatus: tenants.status,
       })
       .from(payments)
@@ -48,8 +53,21 @@ operationsRouter.get("/operations/:reference", async (req, res) => {
         amount: operation.amount,
         currency: operation.currency,
         status: operation.status,
-        stationName: operation.stationName,
         paymentEnabled: false,
+      },
+      station: {
+        id: operation.stationId,
+        name: operation.stationName,
+        publicCode: operation.publicCode,
+      },
+      tenant: {
+        id: operation.tenantId,
+        name: operation.tenantName,
+        slug: operation.tenantSlug,
+      },
+      public: {
+        googleReviewUrl: operation.googleReviewUrl,
+        whatsappNumber: operation.whatsappNumber,
       },
       message: "Estado informativo. La integración de pagos todavía no está habilitada.",
     });
