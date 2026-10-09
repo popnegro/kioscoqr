@@ -89,14 +89,14 @@ function showHome() {
   document.title = "KioscoQR · Cobro presencial";
   renderMessage({
     eyebrow: "Información",
-    heading: "Consultá una operación de tu comercio",
-    message: "Este sitio no permite ingresar importes ni iniciar pagos. Para continuar, escaneá el QR del puesto o abrí el enlace de una operación que te haya compartido el cajero.",
+    heading: "Esperá el QR de tu operación",
+    message: "El cajero ingresa el importe y genera un QR dinámico vinculado a esa operación. Escaneá únicamente ese QR para revisar el importe y la referencia.",
     steps: [
-      "Escaneá el QR impreso del puesto para identificar el comercio.",
-      "Pedile al cajero que genere la operación con el importe correcto.",
-      "Escaneá el QR específico de esa operación para consultar su referencia y estado.",
+      "El cajero ingresa el importe y genera el QR de esa operación.",
+      "Escaneá el QR dinámico que te muestra el cajero.",
+      "Revisá el importe y la referencia; el cajero debe verificar el pago por un medio confiable antes de darlo por realizado.",
     ],
-    status: "Los pagos digitales están deshabilitados. No ingreses datos de billeteras ni compartas claves.",
+    status: "La integración de pagos todavía no está habilitada: esta versión no puede verificar ni confirmar pagos digitales.",
   });
 }
 
@@ -206,13 +206,13 @@ async function resolveRoute() {
     renderMessage({
       eyebrow: "Comercio identificado",
       heading: "Pedí tu operación al cajero",
-      message: "Este QR impreso identifica el comercio y el puesto; no representa un cobro ni contiene un importe.",
+      message: "Este enlace no identifica una operación con importe. Pedile al cajero que genere y te muestre el QR dinámico asociado al cobro.",
       steps: [
-        "Mostrá al cajero el importe que necesitás pagar.",
-        "El cajero debe crear la operación en su panel y mostrarte el QR específico.",
-        "Escaneá ese segundo QR para revisar el importe y la referencia antes de continuar.",
+        "El cajero ingresa el importe y genera el QR dinámico de la operación.",
+        "Escaneá el QR dinámico específico que te muestra el cajero.",
+        "Revisá el importe y la referencia; el cajero debe verificar el pago por un medio confiable antes de darlo por realizado.",
       ],
-      status: "Los pagos digitales todavía no están habilitados. No ingreses datos de pago ni compartas claves.",
+      status: "La integración de pagos todavía no está habilitada: esta versión no puede verificar ni confirmar pagos digitales.",
     });
   } catch {
     showStationError("No pudimos conectar con el servicio. Verificá tu conexión e intentá nuevamente.");
