@@ -96,7 +96,6 @@ cashierRouter.post("/session", async (req, res) => {
   const stationTokens = getStationTokens();
   if (!stationTokens) return res.status(503).json({ ok: false, error: "CASHIER_AUTH_NOT_CONFIGURED" });
   if (!sameOrigin(req)) return res.status(403).json({ ok: false, error: "ORIGIN_NOT_ALLOWED" });
-  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
 
   const stationCode = typeof req.body?.stationCode === "string" ? req.body.stationCode.trim() : "";
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(stationCode)) {
@@ -107,6 +106,7 @@ cashierRouter.post("/session", async (req, res) => {
   if (!validToken(typeof req.body?.token === "string" ? req.body.token : undefined, expectedToken)) {
     return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
   }
+  if (!db) return res.status(503).json({ ok: false, error: "DATABASE_NOT_CONFIGURED" });
 
   try {
     const rows = await db
