@@ -114,7 +114,7 @@ export async function createProviderQrIntent(input: {
       cc_code: ccCode,
       processor_code: processorCode,
       external_intention_id: input.reference,
-      expiration_date: new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19),
+      expiration_date: new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0, 19),
     }),
     signal: AbortSignal.timeout(10000),
   });
