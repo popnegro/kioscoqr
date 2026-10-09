@@ -3,6 +3,7 @@ import { db } from "./db/client.js";
 import { cashierRouter } from "./routes/cashier.js";
 import { operationsRouter } from "./routes/operations.js";
 import { publicRouter } from "./routes/public.js";
+import { webhooksRouter } from "./routes/webhooks.js";
 
 export const app = express();
 app.disable("x-powered-by");
@@ -10,6 +11,7 @@ app.use(express.json({ limit: "32kb" }));
 app.use("/api/public", publicRouter);
 app.use("/api/public", operationsRouter);
 app.use("/api/cashier", cashierRouter);
+app.use("/api/webhooks", webhooksRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "kioscoqr", database: db ? "configured" : "not_configured", timestamp: new Date().toISOString() });
