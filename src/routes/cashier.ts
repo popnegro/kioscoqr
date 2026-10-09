@@ -32,7 +32,7 @@ cashierRouter.post("/operations", async (req, res) => {
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(publicCode)) {
     return res.status(400).json({ ok: false, error: "INVALID_STATION_CODE" });
   }
-  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100 || amount > 9999999999.99) {
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) / 100 !== amount || amount > 9999999999.99) {
     return res.status(400).json({ ok: false, error: "INVALID_AMOUNT" });
   }
 
