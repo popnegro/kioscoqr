@@ -10,6 +10,7 @@ const providerEnvNames = [
   "MODO_CC_CODE",
   "MODO_PROCESSOR_CODE",
   "MODO_BASE_URL",
+  "MODO_WEBHOOK_PUBLIC_KEY",
 ] as const;
 
 async function withEnv<T>(values: Record<string, string | undefined>, run: () => Promise<T>): Promise<T> {
