@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import { db } from "../db/client.js";
 import { cashierStations, cashiers, payments, tenants } from "../db/schema.js";
-import { createProviderQrIntent, ProviderNotConfiguredError, ProviderRequestError, type PaymentProvider } from "../payments/providers.js";
+import { createProviderQrIntent, isProviderConfigured, ProviderNotConfiguredError, ProviderRequestError, type PaymentProvider } from "../payments/providers.js";
 
 export const cashierRouter = Router();
 
@@ -170,6 +170,21 @@ cashierRouter.get("/session", async (req, res) => {
   } catch {
     return res.status(503).json({ ok: false, error: "CASHIER_SESSION_UNAVAILABLE" });
   }
+});
+
+cashierRouter.get("/providers", (req, res) => {
+  const stationTokens = getStationTokens();
+  if (!stationTokens) return res.status(503).json({ ok: false, error: "CASHIER_AUTH_NOT_CONFIGURED" });
+  const session = readSession(req.headers.cookie, stationTokens);
+  if (!session) return res.status(401).json({ ok: false, error: "SESSION_REQUIRED" });
+  res.setHeader("Cache-Control", "no-store, private");
+  return res.json({
+    ok: true,
+    providers: [
+      { id: "MERCADOPAGO", label: "Mercado Pago", configured: isProviderConfigured("MERCADOPAGO") },
+      { id: "MODO", label: "MODO", configured: isProviderConfigured("MODO") },
+    ],
+  });
 });
 
 cashierRouter.post("/session/logout", (req, res) => {
