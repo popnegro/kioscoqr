@@ -26,6 +26,14 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+async function providerFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new ProviderRequestError();
+  }
+}
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   if (!response.ok) throw new ProviderRequestError();
   const payload: unknown = await response.json().catch(() => null);
@@ -58,7 +66,7 @@ export async function createProviderQrIntent(input: {
   if (input.provider === "MERCADOPAGO") {
     const token = requiredEnv("MERCADOPAGO_ACCESS_TOKEN");
     const posId = requiredEnv("MERCADOPAGO_POS_ID");
-    const response = await fetch("https://api.mercadopago.com/v1/orders", {
+    const response = await providerFetch("https://api.mercadopago.com/v1/orders", {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -92,7 +100,7 @@ export async function createProviderQrIntent(input: {
     throw new ProviderNotConfiguredError();
   }
 
-  const response = await fetch(baseUrl + "/v2/payment-requests/", {
+  const response = await providerFetch(baseUrl + "/v2/payment-requests/", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + token,
@@ -106,7 +114,7 @@ export async function createProviderQrIntent(input: {
       cc_code: ccCode,
       processor_code: processorCode,
       external_intention_id: input.reference,
-      expiration_date: new Date(Date.now() + 15 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z"),
+      expiration_date: new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19),
     }),
     signal: AbortSignal.timeout(10000),
   });
