@@ -31,6 +31,9 @@ async function request(path, options = {}) {
       STATION_NOT_ACTIVE: "El puesto está deshabilitado. Contactá al administrador.",
       INVALID_AMOUNT: "Ingresá un importe mayor que cero con hasta dos decimales.",
       NO_ACTIVE_CASHIER: "No hay un cajero activo asociado al comercio.",
+      INVALID_PROVIDER: "Seleccioná Mercado Pago o MODO.",
+      PROVIDER_NOT_CONFIGURED: "El proveedor seleccionado todavía no tiene todas las credenciales y parámetros comerciales configurados. No se creó ningún QR.",
+      PROVIDER_REQUEST_FAILED: "El proveedor rechazó o no pudo completar la solicitud. No se mostró ningún QR; verificá el panel del proveedor antes de reintentar."
     };
     throw new Error(messages[payload?.error] || "No se pudo completar la solicitud. Código: " + (payload?.error || response.status));
   }
@@ -105,6 +108,22 @@ function renderPanel(session) {
     }
   });
   const form = element("form", "cashier-form");
+  const providerLabel = element("label", "", "Proveedor de pago");
+  providerLabel.htmlFor = "payment-provider";
+  const provider = element("select");
+  provider.id = "payment-provider";
+  provider.name = "provider";
+  provider.required = true;
+  const providerPlaceholder = element("option", "", "Seleccionar proveedor");
+  providerPlaceholder.value = "";
+  providerPlaceholder.disabled = true;
+  providerPlaceholder.selected = true;
+  provider.append(providerPlaceholder);
+  for (const [value, labelText] of [["MERCADOPAGO", "Mercado Pago · requiere credenciales y POS"], ["MODO", "MODO · requiere credenciales y configuración comercial"]]) {
+    const option = element("option", "", labelText);
+    option.value = value;
+    provider.append(option);
+  }
   const label = element("label", "", "Importe a cobrar (ARS)");
   label.htmlFor = "operation-amount";
   const amount = element("input");
@@ -119,7 +138,8 @@ function renderPanel(session) {
   amount.required = true;
   const submit = element("button", "primary", "Generar QR dinámico");
   submit.type = "submit";
-  form.append(label, amount, submit);
+  form.append(providerLabel, provider, label, amount, submit);
+  form.append(element("p", "cashier-meta", "Cada operación utiliza un solo proveedor y su QR propio. No cambies de proveedor para una misma operación."));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const value = Number(amount.value);
@@ -132,7 +152,7 @@ function renderPanel(session) {
       const result = await request("/api/cashier/operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: value }),
+        body: JSON.stringify({ amount: value, provider: provider.value }),
       });
       renderOperation(result.operation);
     } catch (error) {
@@ -148,38 +168,16 @@ function renderPanel(session) {
 
 function renderOperation(operation) {
   const card = element("section", "cashier-operation");
-  card.append(element("p", "eyebrow", "QR dinámico generado · pago no habilitado"));
+  const providerName = operation.provider === "MERCADOPAGO" ? "Mercado Pago" : "MODO";
+  card.append(element("p", "eyebrow", "QR dinámico de " + providerName));
   card.append(element("h2", "", "$" + Number(operation.amount).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })));
   card.append(element("p", "cashier-meta", "Referencia: " + operation.reference));
-  card.append(element("p", "cashier-meta", "Estado: operación creada. El QR identifica este importe y esta referencia; todavía no se puede verificar un pago desde KioscoQR."));
-  const customerUrl = new URL("/", location.origin);
-  customerUrl.searchParams.set("station", currentSession.stationCode);
-  customerUrl.searchParams.set("reference", operation.reference);
+  card.append(element("p", "cashier-meta", "Estado inicial: PENDIENTE. Este estado no confirma que el dinero haya sido acreditado."));
   const image = element("img", "cashier-qr");
-  image.alt = "QR dinámico asociado al importe y referencia de esta operación. Pago digital no habilitado.";
-  image.src = "/api/cashier/operations/" + encodeURIComponent(operation.reference) + "/qr";
+  image.alt = "QR de pago emitido por " + providerName + " para la operación " + operation.reference;
+  image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(operation.qrSvg);
   card.append(image);
-  const actions = element("div", "cashier-actions");
-  const open = element("a", "cashier-secondary", "Abrir vista cliente");
-  open.href = customerUrl.toString();
-  open.target = "_blank";
-  open.rel = "noopener noreferrer";
-  open.style.display = "grid";
-  open.style.placeItems = "center";
-  open.style.textDecoration = "none";
-  const copy = element("button", "cashier-secondary", "Copiar enlace");
-  copy.type = "button";
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(customerUrl.toString());
-      copy.textContent = "Enlace copiado";
-    } catch {
-      showNotice("No se pudo copiar automáticamente. Abrí la vista cliente y copiá el enlace desde el navegador.");
-    }
-  });
-  actions.append(open, copy);
-  card.append(actions);
-  card.append(element("p", "cashier-success", "Mostrá este QR al cliente. Antes de dar la operación por pagada, el cajero debe verificar el pago por un medio confiable. La verificación automática todavía no está integrada."));
+  card.append(element("p", "cashier-error", "No marques la operación como pagada por el escaneo o una captura. La verificación automática del estado del proveedor todavía debe completarse antes del uso operativo."));
   app.prepend(card);
   const old = app.querySelector(".cashier-operation:not(:first-child)");
   if (old) old.remove();
