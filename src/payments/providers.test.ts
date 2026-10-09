@@ -107,6 +107,7 @@ test("MODO adapter uses preproduction and a unique external intention ID", async
     MODO_MERCHANT_USER_AGENT: "KioscoQR QA",
     MODO_CC_CODE: "test-cc",
     MODO_PROCESSOR_CODE: "test-processor",
+    MODO_WEBHOOK_PUBLIC_KEY: "test-public-key",
   }, async () => {
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       requestUrl = String(input);
