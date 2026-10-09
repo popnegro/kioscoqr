@@ -32,7 +32,7 @@ Documentación oficial: https://merchants.modo.com.ar/docs/f6bc2e95-a4c3-47c4-8d
 - Endpoint documentado: `POST /v2/payment-requests/`.
 - Base de preproducción: `https://merchants.preprod.playdigital.com.ar`; producción: `https://merchants.playdigital.com.ar`.
 - Requiere token Bearer y header `User-Agent` con el nombre real del comercio.
-- El payload requiere `description`, `amount`, `currency: "ARS"`, `cc_code`, `processor_code` y `external_intention_id` único. Algunos gateways requieren campos adicionales (por ejemplo, `establishment_numbers` para Line).
+- El payload requiere `description`, `amount`, `currency: "ARS"`, `cc_code`, `processor_code` y `external_intention_id` único. Algunos gateways requieren campos adicionales (por ejemplo, `establishment_numbers` para Line). La documentación limita `expiration_date` a 5–10 minutos; el adaptador usa 10 minutos.
 - La respuesta documentada incluye `id`, `qr` y `deeplink`; el adaptador requiere `id` y `qr` como strings y utiliza el QR devuelto por MODO, nunca un QR interno.
 - Los valores comerciales `cc_code` y `processor_code`, el gateway/adquirente y las credenciales deben ser provistos por la cuenta comercial MODO/Payway correspondiente; no se deben inventar.
 
