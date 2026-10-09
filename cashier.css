@@ -25,3 +25,9 @@
   .cashier-kiosk { min-height: 100vh; }
   .cashier-actions { grid-template-columns: 1fr; }
 }
+
+.cashier-form select {
+  width: 100%; min-height: 50px; padding: 12px 14px;
+  border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #0f172a;
+}
+.cashier-form select:focus-visible { outline: 3px solid #94a3b8; outline-offset: 2px; }
