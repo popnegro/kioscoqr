@@ -124,3 +124,18 @@ export async function createProviderQrIntent(input: {
   }
   return { provider: input.provider, providerPaymentId: payload.id, qrData: payload.qr };
 }
+
+
+export async function getMercadoPagoOrder(orderId: string): Promise<Record<string, unknown>> {
+  if (!isProviderConfigured("MERCADOPAGO")) throw new ProviderNotConfiguredError();
+  if (!/^ORD[A-Za-z0-9]{26}$/.test(orderId)) throw new ProviderRequestError();
+  const token = requiredEnv("MERCADOPAGO_ACCESS_TOKEN");
+  const response = await providerFetch("https://api.mercadopago.com/v1/orders/" + encodeURIComponent(orderId), {
+    method: "GET",
+    headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+    signal: AbortSignal.timeout(10000),
+  });
+  const payload = await readJson(response);
+  if (payload.id !== orderId || typeof payload.status !== "string") throw new ProviderRequestError();
+  return payload;
+}
