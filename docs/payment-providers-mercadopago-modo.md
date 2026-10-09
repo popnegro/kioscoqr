@@ -6,7 +6,7 @@ El cajero elige un proveedor antes de generar el QR. Cada operación queda asoci
 
 ## Estado de seguridad
 
-Esta especificación no habilita cobros. La versión actual genera un QR interno de referencia y deja `paymentEnabled: false`. No debe mostrarse como QR pagable de Mercado Pago o MODO hasta que el backend haya creado correctamente una orden/intención real con el proveedor y recibido su payload QR. Nunca marcar `PAID` por escaneo, redirección, captura de pantalla ni respuesta del navegador.
+El selector de proveedor y los adaptadores de creación de QR están implementados en esta rama. Si falta alguna variable obligatoria, la API devuelve `503 PROVIDER_NOT_CONFIGURED`. Cuando el proveedor confirma la creación y devuelve su QR, la operación se registra como `PENDING`. La consulta de estado/webhook aún no está implementada: no habilitar uso operativo ni marcar `PAID` por escaneo, redirección, captura de pantalla o respuesta del navegador.
 
 ## Mercado Pago — QR dinámico presencial
 
@@ -17,8 +17,8 @@ Documentación oficial: https://www.mercadopago.com.ar/developers/es/docs/qr-cod
 - Enviar `X-Idempotency-Key` única por intento.
 - Incluir la referencia propia en `external_reference`, el importe en `transactions.payments` y configurar `config.qr.mode: "dynamic"` junto con el identificador de caja `config.qr.external_pos_id`.
 - Renderizar el contenido QR exclusivo retornado por la API (por ejemplo, `qr_data`), no la URL interna de KioscoQR.
-- Persistir el identificador de order del proveedor y correlacionarlo con la referencia propia.
-- Para webhook de órdenes QR, consultar la order en la API oficial y validar su estado antes de transicionar el registro local.
+- Persistir el identificador de order del proveedor y correlacionarlo con la referencia propia. El adaptador actual persiste el ID en `provider_payment_id`.
+- La implementación pendiente debe consultar `GET /v1/orders/{order_id}` y validar importe, moneda, referencia y estado antes de cualquier transición local.
 
 Variables de entorno previstas:
 - `MERCADOPAGO_ACCESS_TOKEN`
@@ -33,7 +33,7 @@ Documentación oficial: https://merchants.modo.com.ar/docs/f6bc2e95-a4c3-47c4-8d
 - Base de preproducción: `https://merchants.preprod.playdigital.com.ar`; producción: `https://merchants.playdigital.com.ar`.
 - Requiere token Bearer y header `User-Agent` con el nombre real del comercio.
 - El payload requiere `description`, `amount`, `currency: "ARS"`, `cc_code`, `processor_code` y `external_intention_id` único. Algunos gateways requieren campos adicionales (por ejemplo, `establishment_numbers` para Line).
-- La respuesta documentada incluye `id`, `qr` y `deeplink`; usar el QR devuelto por MODO, nunca generar un QR interno y presentarlo como cobrable.
+- La respuesta documentada incluye `id`, `qr` y `deeplink`; el adaptador requiere `id` y `qr` como strings y utiliza el QR devuelto por MODO, nunca un QR interno.
 - Los valores comerciales `cc_code` y `processor_code`, el gateway/adquirente y las credenciales deben ser provistos por la cuenta comercial MODO/Payway correspondiente; no se deben inventar.
 
 Variables de entorno previstas:
@@ -49,7 +49,7 @@ Variables de entorno previstas:
 - Proveedor: `MERCADOPAGO` o `MODO`.
 - Crear intención: referencia idempotente, importe ARS, descripción no sensible.
 - Respuesta: provider, provider order/payment request ID, payload QR del proveedor, expiración, estado local `PENDING` solo tras creación confirmada por la API.
-- Estados locales: transición monotónica y validada; solo el servidor puede marcar `PAID` después de consultar la API oficial o validar una notificación auténtica y correlacionada.
+- Estados locales: la creación confirmada deja `PENDING`; la transición a `PAID` no está implementada. Debe añadirse consulta de estado/webhook con validación de importe, moneda, referencia e identidad del comercio.
 - Webhooks: aceptar reintentos de forma idempotente, no confiar en importes/referencias aportados sin consultar al proveedor, y no loguear tokens ni datos personales.
 - Reconciliación: si se pierde la respuesta al crear una intención, consultar por la referencia/idempotency key antes de crear otra para evitar dobles cobros.
 - Un proveedor sin configuración válida debe quedar deshabilitado en la UI y devolver `503 PROVIDER_NOT_CONFIGURED`. No degradar silenciosamente a QR interno.
@@ -57,7 +57,7 @@ Variables de entorno previstas:
 ## Puerta para habilitar producción
 
 1. Credenciales de prueba y parámetros de caja/gateway disponibles.
-2. Implementación API + webhook/reconsulta, migración de datos e idempotencia.
+2. Implementación de consulta de estado/webhook para ambos proveedores y reconciliación de solicitudes con resultado de red ambiguo.
 3. Pruebas automáticas con respuestas simuladas y pruebas reales de sandbox/preproducción.
 4. QA de importe, referencia, expiración, pagos duplicados, estados fallidos y aislamiento multi-tenant.
 5. Recién entonces configurar credenciales productivas y habilitar cobros.
