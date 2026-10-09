@@ -52,7 +52,7 @@ Variables de entorno previstas:
 - Estados locales: la creación confirmada deja `PENDING`; la transición a `PAID` no está implementada. Debe añadirse consulta de estado/webhook con validación de importe, moneda, referencia e identidad del comercio.
 - Webhooks: aceptar reintentos de forma idempotente, no confiar en importes/referencias aportados sin consultar al proveedor, y no loguear tokens ni datos personales.
 - Reconciliación: si se pierde la respuesta al crear una intención, consultar por la referencia/idempotency key antes de crear otra para evitar dobles cobros.
-- Un proveedor sin configuración válida debe quedar deshabilitado en la UI y devolver `503 PROVIDER_NOT_CONFIGURED`. No degradar silenciosamente a QR interno.
+- Un proveedor sin configuración válida se deshabilita en la UI y la API devuelve `503 PROVIDER_NOT_CONFIGURED`. No degradar silenciosamente a QR interno.
 
 ## Puerta para habilitar producción
 
