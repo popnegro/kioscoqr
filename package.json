@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "check": "tsc --noEmit",
-    "test": "tsx --test src/routes/cashier.test.ts src/payments/providers.test.ts"
+    "test": "tsx --test src/routes/cashier.test.ts src/payments/providers.test.ts src/payments/reconcile.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
