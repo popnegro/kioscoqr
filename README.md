@@ -28,10 +28,12 @@ Alternativas futuras: `EXPIRED` y `CANCELLED`.
 
 ## Desarrollo
 
+```bash
 npm install
 cp .env.example .env
 npm run check
 npm run dev
+```
 
 Endpoints iniciales:
 - GET /api/health
@@ -56,3 +58,12 @@ Esta modificación mínima existe únicamente para validar el circuito CI -> PR 
 - Flujo de cliente: (1) el cajero ingresa el importe y genera el QR dinámico; (2) el cliente escanea ese QR específico y revisa importe/referencia; (3) el cajero verifica el pago por un medio confiable antes de darlo por realizado. Esta verificación manual no está automatizada en el PMV.
 - No configures el token en código cliente ni lo incluyas en repositorio, issues o logs. Rotarlo invalida las sesiones existentes.
 - Antes de uso operativo, verificar en Preview los casos sin token (503), token incorrecto (401), puesto inválido (404), operación sin sesión (401) y creación válida de una intención (201). La prueba de creación inserta una fila en `payments`; no ejecutarla en producción sin autorización explícita.
+
+## Proveedores de pago: Mercado Pago + MODO
+
+El cajero seleccionará un solo proveedor antes de generar el QR. La operación quedará asociada a ese proveedor y no se permitirá cambiarlo después de iniciar el cobro. La implementación debe usar el QR emitido por el proveedor, no el QR interno actual.
+
+- [Contrato técnico, endpoints y variables requeridas](docs/payment-providers-mercadopago-modo.md).
+- Mercado Pago: requiere Access Token y caja/POS configurados para QR dinámico.
+- MODO: requiere credenciales de acceso y parámetros comerciales `cc_code` y `processor_code` proporcionados por la cuenta/gateway del comercio.
+- Ambos permanecen deshabilitados hasta completar creación de intención real, validación de estado, webhook/reconsulta e idempotencia en sandbox/preproducción. No habilitar producción antes de pasar QA.
