@@ -40,6 +40,18 @@ function renderMessage({ eyebrow, heading, message, status }) {
   }
 }
 
+function formatOperationStatus(status) {
+  const labels = {
+    CREATED: "Pendiente de pago",
+    PENDING: "Pendiente de verificación",
+    PAID: "Pagado",
+    FAILED: "Fallido",
+    CANCELLED: "Cancelado",
+    EXPIRED: "Vencido",
+  };
+  return labels[status] || "Estado no reconocido";
+}
+
 function showStationError(message) {
   renderMessage({
     eyebrow: "QR no validado",
@@ -80,10 +92,10 @@ async function showOperation(reference, publicCode) {
     renderMessage({
       eyebrow: "Operación identificada",
       heading: "$" + amountLabel,
-      message: "Referencia: " + operation.reference + ". Estado: " + operation.status + ".",
+      message: "Referencia: " + operation.reference + ". Estado: " + formatOperationStatus(operation.status) + ".",
       status: operation.paymentEnabled === false
         ? "Pago digital no habilitado. Esta operación no inició ni confirmó ningún cobro; seguí las indicaciones del cajero."
-        : "Consultá el estado con el cajero antes de continuar.",
+        : "El estado de pago no está habilitado para consulta automática. Verificá con el cajero antes de continuar.",
     });
     form.remove();
   } catch {
