@@ -122,6 +122,7 @@ function renderPanel(session) {
   for (const [value, labelText] of [["MERCADOPAGO", "Mercado Pago · requiere credenciales y POS"], ["MODO", "MODO · requiere credenciales y configuración comercial"]]) {
     const option = element("option", "", labelText);
     option.value = value;
+    option.disabled = true;
     provider.append(option);
   }
   const label = element("label", "", "Importe a cobrar (ARS)");
@@ -163,7 +164,27 @@ function renderPanel(session) {
     }
   });
   app.append(form, logout);
+  void loadProviderAvailability(provider);
   app.append(element("p", "cashier-meta", "El QR se emite por el proveedor seleccionado. La verificación del estado todavía debe completarse antes de confirmar un pago."));
+}
+
+async function loadProviderAvailability(select) {
+  try {
+    const payload = await request("/api/cashier/providers");
+    for (const item of payload.providers || []) {
+      const option = Array.from(select.options).find((candidate) => candidate.value === item.id);
+      if (!option) continue;
+      option.disabled = !item.configured;
+      option.textContent = item.configured
+        ? item.label
+        : item.label + " · no configurado";
+    }
+    if (!(payload.providers || []).some((item) => item.configured)) {
+      showNotice("Mercado Pago y MODO todavía requieren configuración en el servidor. No se pueden generar QR hasta completar las credenciales.");
+    }
+  } catch (error) {
+    showNotice(error.message);
+  }
 }
 
 function renderOperation(operation) {
